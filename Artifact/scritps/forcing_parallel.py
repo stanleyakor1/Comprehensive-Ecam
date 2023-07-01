@@ -5,6 +5,7 @@ import logging
 import pandas as pd
 import multiprocessing as mp
 from download import *
+import sys
 
 
 def CFSRV2(start_date,start_hour,
@@ -72,7 +73,7 @@ def CFSRV2(start_date,start_hour,
 if __name__ == "__main__":
     dlist, filelist, renamelist = CFSRV2("2023-01-11", 12, "2023-01-12", 0, data_dl_dirc='./', logger=False)
 
-    with mp.Pool(processes=8) as pool:
+    with mp.Pool(processes=int(sys.argv[1])) as pool:
         results_async = pool.map_async(download_data, zip(dlist, renamelist))
 
         pool.close()
