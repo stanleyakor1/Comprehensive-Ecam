@@ -41,19 +41,20 @@ def CFSRV2(start_date,start_hour,
     filelist = []
     renamelist = []
     for date in date_range:
-        for extension in ['pgb']: #'flxf'
+        for extension in ['pgb','flxf']:
             if extension == 'pgb':
                 fname_extension = 'pgrbh06'
                 rename_extension = 'pgbh06'  # this is to be consisten w/ cfsr .... confusing i know. 
                 
-            #elif extension == 'flxf':
-            #    fname_extension = 'sfluxgrbf06'
-            #    rename_extension = 'flxf06'  # this is to be consisten w/ cfsr .... confusing i know. 
+            elif extension == 'flxf':
+               fname_extension = 'sfluxgrbf06'
+               rename_extension = 'flxf06'  # this is to be consisten w/ cfsr .... confusing i know. 
             # get date info duh 
             year = date.strftime('%Y')
             month = date.strftime('%m')
             day = date.strftime('%d')
             hour = date.strftime('%H')
+
             # get the pgbh files
             base = nomads_url.format(extension, year, year+ month, year+month+day)
             filename_complete = filename.format(hour, fname_extension)
@@ -71,7 +72,7 @@ def CFSRV2(start_date,start_hour,
 
 
 if __name__ == "__main__":
-    dlist, filelist, renamelist = CFSRV2("2023-01-11", 12, "2023-01-12", 0, data_dl_dirc='./', logger=False)
+    dlist, filelist, renamelist = CFSRV2("2023-01-11", 18, "2023-01-12", 0, data_dl_dirc='./', logger=False)
 
     with mp.Pool(processes=int(sys.argv[1])) as pool:
         results_async = pool.map_async(download_data, zip(dlist, renamelist))
