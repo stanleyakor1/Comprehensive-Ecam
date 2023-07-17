@@ -56,14 +56,66 @@ def download_url(start_date, end_date, path='./SNODAS/', masked=True):
 if __name__ == "__main__":
     start_date = '2023-01-01'
     end_date = '2023-01-02'
-    path = './SNODAS/'
+    path = 'SNODAS'
     masked = True
+    unzip = True
 
     url_list, file_names = download_url(start_date, end_date, path, masked)
 
 
-    with mp.Pool(processes=int(sys.argv[1])) as pool:
-        results_async = pool.map(download_data, zip(url_list, file_names))
+    #check if the path exists
 
-        pool.close()
-        pool.join()
+    hmdir = os.path.expanduser("~")
+    snodas_path = os.path.join(hmdir, path)
+
+    if not os.path.exists(snodas_path):
+
+        try:
+
+            # create the directory if it doesn't exist
+            os.makedirs(snodas_path)
+
+            os.chdir(snodas_path)
+
+
+            #Download the files into the directory
+
+            with mp.Pool(processes=int(sys.argv[1])) as pool:
+                results_async = pool.map(download_data, zip(url_list, file_names))
+
+                pool.close()
+                pool.join()
+
+        except Exception as e:
+            print(e)
+
+    try:
+
+        os.chdir(snodas_path)
+
+    
+
+        with mp.Pool(processes=int(sys.argv[1])) as pool:
+            results_async = pool.map(download_data, zip(url_list, file_names))
+
+            pool.close()
+            pool.join()
+
+    except Exception as e:
+        print(e)
+
+    if unzip:
+
+        files_to_unzip = [filename for filename in os.listdir(snodas_path) if filename.endswith('.tar')]
+
+        for file_unzip in files_to_unzip:
+
+            try:
+                untar_file(os.path.join(snodas_path, file_unzip), snodas_path)
+
+            except Exception as e:
+                print(f'Error unzipping file: {e}')
+
+        
+
+

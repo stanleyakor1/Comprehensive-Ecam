@@ -1,4 +1,5 @@
 import urllib.request
+import tarfile
 
 def download_data(args):
     try:
@@ -9,6 +10,6 @@ def download_data(args):
         return str(e)
 
 
-def untar_file(self,filename, exdir):
+def untar_file(filename, exdir):
         with tarfile.open(filename, 'r') as tar:
             tar.extractall(exdir)
