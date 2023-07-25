@@ -1,3 +1,7 @@
+
+#check if the path exists
+
+
 import os
 from datetime import datetime, timedelta
 import pandas as pd
@@ -44,6 +48,7 @@ def download_url(start_date, end_date, path='./SNODAS/', masked=True):
     date_range = make_date_range(start_date, end_date)
     file_names = []
     url_list = []
+    
 
     for date in date_range:
         URLpath, filename = make_url(date, masked)
@@ -59,14 +64,14 @@ if __name__ == "__main__":
     path = 'SNODAS'
     masked = True
     unzip = True
-
+    remove_compressed = True
     url_list, file_names = download_url(start_date, end_date, path, masked)
 
 
     #check if the path exists
 
-    hmdir = os.path.expanduser("~")
-    snodas_path = os.path.join(hmdir, path)
+    snodas_path = os.getcwd()
+    snodas_path = os.path.join(snodas_path, path)
 
     if not os.path.exists(snodas_path):
 
@@ -79,7 +84,7 @@ if __name__ == "__main__":
 
 
             #Download the files into the directory
-
+            print(f'Now downloading files!.........')
             with mp.Pool(processes=int(sys.argv[1])) as pool:
                 results_async = pool.map(download_data, zip(url_list, file_names))
 
@@ -89,20 +94,22 @@ if __name__ == "__main__":
         except Exception as e:
             print(e)
 
-    try:
+    else:
 
-        os.chdir(snodas_path)
+        try:
 
-    
+            os.chdir(snodas_path)
 
-        with mp.Pool(processes=int(sys.argv[1])) as pool:
-            results_async = pool.map(download_data, zip(url_list, file_names))
+            print(f'Now downloading files!.........')
 
-            pool.close()
-            pool.join()
+            with mp.Pool(processes=int(sys.argv[1])) as pool:
+                results_async = pool.map(download_data, zip(url_list, file_names))
 
-    except Exception as e:
-        print(e)
+                pool.close()
+                pool.join()
+
+        except Exception as e:
+            print(e)
 
     if unzip:
 
@@ -116,6 +123,22 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f'Error unzipping file: {e}')
 
-        
 
+            try: 
+                ungzip_files_in_folder(snodas_path)
+
+            except Exception as e:
+                print(f'Error gunzipping files .....')
+
+    if remove_compressed:
+
+        try: 
+             remove_tar_and_gz_files(snodas_path)
+
+        except Exception as e:
+
+            print(f'Error deleting compressed files....')
+        
+#hmdir = os.path.expanduser("~")
+#snodas_path = os.path.join(hmdir, path)
 
