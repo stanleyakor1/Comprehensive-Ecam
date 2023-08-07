@@ -124,21 +124,22 @@ if __name__ == "__main__":
                 print(f'Error unzipping file: {e}')
 
 
-            try: 
-                ungzip_files_in_folder(snodas_path)
+        try: 
+            uncompress_all_gz_files(snodas_path)
 
-            except Exception as e:
-                print(f'Error gunzipping files .....')
+        except Exception as e:
+            print(f'Error gunzipping files .....')
 
     if remove_compressed:
 
         try: 
-             remove_tar_and_gz_files(snodas_path)
+             remove_compressed_files(snodas_path)
 
         except Exception as e:
 
             print(f'Error deleting compressed files....')
+
+    print('All Done!')
         
 #hmdir = os.path.expanduser("~")
 #snodas_path = os.path.join(hmdir, path)
-
