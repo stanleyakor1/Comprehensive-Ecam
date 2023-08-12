@@ -1,5 +1,5 @@
 class getclosest():
-    def __init__(self, path_to_header,path_to_csv,path_to_geog,path_to_wrf_file):
+    def __init__(self, path_to_header,path_to_csv,path_to_geog,path_to_wrf_file,save_name, save = True):
         self.path_to_header = path_to_header
         self.path_to_csv = path_to_csv
         self.geog = xr.open_dataset(path_to_geog)
@@ -9,7 +9,9 @@ class getclosest():
         self.start = '2021-10-01'
         self.end = '2022-01-14'
         self.feat = {}
-        
+        self.save = save
+        self.save_name = save_name
+        #self.wrf_path = path_to_wrf_file
 
     def collect_snodas_info(self):
         df = pd.read_csv(self.path_to_header)
@@ -19,7 +21,6 @@ class getclosest():
         lat = filtered_df['Latitude'].tolist()
         lon = filtered_df['Longitude'].tolist()
         sta_id = filtered_df['Station ID'].tolist()
-        #print(sta_id)
 
         '''
           Seems one of the stations has been 
@@ -63,7 +64,7 @@ class getclosest():
             path = self.path_to_csv+'/'+name
             generic = f'{sta_names[id]} ({sta_id[id]}) Precipitation Accumulation (in) Start of Day Values'
             df = pd.read_csv(path)
-            df = df[(df['Date'] >=self.start) & (df_usgs['Date'] <= self.end)]
+            df = df[(df['Date'] >=self.start) & (df['Date'] <= self.end)]
             df_filtered = df[generic].tolist()
             df_filtered = [value * 25.4 for value in df_filtered]
             ixlat,ixlon = dict[str(sta_id[id])]
@@ -99,7 +100,7 @@ class getclosest():
             path = self.path_to_csv+'/'+name
             generic = f'{filtered_dict[key]} ({key}) Precipitation Accumulation (in) Start of Day Values'
             df = pd.read_csv(path)
-            df = df[(df['Date'] >=self.start) & (df_usgs['Date'] <= self.end)]
+            df = df[(df['Date'] >=self.start) & (df['Date'] <= self.end)]
             date_range = pd.date_range(self.start, self.end, freq='1D')
             df_filtered = df[generic].tolist()
             df_filtered = [value * 25.4 for value in df_filtered]
@@ -130,11 +131,11 @@ class getclosest():
             
         # Adjust layout and show plots
         plt.tight_layout()
-        plt.savefig('WSM6_TEST.pdf',dpi=600)
+
+        if self.save:
+            plt.savefig(self.save_name+'.pdf',dpi=600)
+            
         plt.show()
-
-
-
 
 if __name__ == '__main__':
     x = getclosest('NRCS_SNOTEL_Locations_noAlaska.csv','temp1',\
