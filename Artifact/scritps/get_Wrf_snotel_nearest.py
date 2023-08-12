@@ -132,3 +132,12 @@ class getclosest():
         plt.tight_layout()
         plt.savefig('WSM6_TEST.pdf',dpi=600)
         plt.show()
+
+
+
+
+if __name__ == '__main__':
+    x = getclosest('NRCS_SNOTEL_Locations_noAlaska.csv','temp1',\
+               '/bsuhome/stanleyakor/scratch/WY_22_THOMPSON/wrfout_d02_2021-09-29_00:00:00',\
+               '/bsuhome/stanleyakor/Python-tutorial/wrf-python/short.nc')
+    feat = x.compare_smallest()
