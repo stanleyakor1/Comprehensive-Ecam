@@ -482,7 +482,17 @@ class station_corr(CompareScheme):
         denominator = np.sum((df - np.mean(df)) ** 2)
         NSE = 1 - (numerator / denominator)
         return NSE
+    
+    def compute_KGE(self, df,wrf):
+        r, _ = pearsonr(df, wrf)
 
+        # Calculate alpha and beta
+        alpha = np.std(wrf) / np.std(df)
+        beta = np.mean(wrf) / np.mean(df)
+
+        # Calculate KGE
+        kge = 1 - np.sqrt((r - 1)**2 + (alpha - 1)**2 + (beta - 1)**2)
+        return kge
         
     def worker(self,diction,scheme, type = 'NSE'):
         site_name, precip_cor, snowh_cor, swe_cor, precip_spear, snowh_spear, swe_spear = [], [], [], [], [], [], []
@@ -526,13 +536,9 @@ class station_corr(CompareScheme):
                 if var == 'PRCP':
                     wrf= self.extract(scheme_files['PRCP'],ixlat,ixlon)# should be adjust according to the input data
                     # #compute correlation
-                    if type == 'cor':
-                        corr = np.corrcoef(df_filtered,wrf)[0,1]
-                        correlation, p_value = spearmanr(df_filtered,wrf)
-                        precip_cor.append(corr)
-                        precip_spear.append(correlation)
-                    
-                    
+                    if type == 'KGE':
+                        precip_cor.append(self.compute_KGE(df_filtered,wrf))
+
                     if type == 'NSE':
             
                         precip_cor.append(self.compute_NSE(df_filtered,wrf))
@@ -541,10 +547,8 @@ class station_corr(CompareScheme):
                     wrf= self.extract(scheme_files['SNOW'],ixlat,ixlon) # should be adjust according to the input data
                     # #compute correlation
 
-                    if type == 'cor':
-                        corr = np.corrcoef(df_filtered,wrf)[0,1]
-                        swe_cor.append(corr)
-                        swe_spear.append(correlation)
+                    if type == 'KGE':
+                        swe_cor.append(self.compute_KGE(df_filtered,wrf))
 
                     if type == 'NSE':
                         
@@ -555,10 +559,8 @@ class station_corr(CompareScheme):
                     wrf= self.extract(scheme_files['SNOWH'],ixlat,ixlon)*1e3  # should be adjust according to the input data
                     # #compute correlation
 
-                    if type == 'cor':
-                        corr = np.corrcoef(df_filtered,wrf)[0,1]
-                        snowh_cor.append(corr)
-                        snowh_spear.append(correlation)
+                    if type == 'KGE':
+                        snowh_cor.append(self.compute_KGE(df_filtered,wrf))
 
                     if type == 'NSE':
                         snowh_cor.append(self.compute_NSE(df_filtered,wrf))

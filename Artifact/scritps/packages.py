@@ -21,6 +21,7 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 import warnings
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import torch
+from scipy.stats import pearsonr
 
 from wrf import (getvar, to_np, get_cartopy, latlon_coords, vertcross, ll_to_xy,
                  cartopy_xlim, cartopy_ylim, interpline, CoordPair, destagger, 
