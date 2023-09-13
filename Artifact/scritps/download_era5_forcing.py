@@ -12,6 +12,15 @@ import gzip
 import os
 import subprocess
 
+#----------------------------------------------------------------------
+# For certificate download issues!                                      
+
+import ssl  # Import the ssl module
+
+# Disable SSL certificate verification
+ssl._create_default_https_context = ssl._create_unverified_context
+
+#----------------------------------------------------------------------
 # Configure the logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
