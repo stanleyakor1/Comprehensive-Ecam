@@ -73,6 +73,8 @@ def regrid_snodas(wrf_file, snodas_file, var, multiple_time = True):
 
 
 
+#file = precip_accumulate(path,'WSM6_22_daily.nc',['TMN','I_RAINNC','SNOWH','RAINNC','T2','SNOW','U10','V10'])
+#file.main()
 '''
 
 Accumulate precipitation from raw wrf output file.
@@ -94,7 +96,7 @@ class precip_accumulate():
         self.wrf['PRCP'] = self.wrf['RAINNC']
         self.wrf['PRCP'].values = self.calc_precip()
         
-        # Compute accumulative precip for each day
+        #Compute accumulative precip for each day
         self.new_array['PRCP'] = self.wrf['PRCP'].resample(XTIME = '24H').max(dim = 'XTIME')
         
         self.new_array.to_netcdf('/bsuhome/stanleyakor/wateryear_2022/'+self.save_name)
