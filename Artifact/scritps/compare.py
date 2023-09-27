@@ -18,7 +18,7 @@ class precip_snotel():
     def collect_snodas_info(self):
         df = pd.read_csv(self.path_to_header)
         df = df[(44.35894 >= df['Latitude']) & (df['Latitude'] >= 42.603153) &\
-                (-113.64972 >= df['Longitude']) & (df['Longitude'] >= -116.31619)]
+                (-113.64972 >= df['Longitude']) & (df['Longitude'] >= -116.31619) ] #& (df['Elevation']>=9000)
 
         filtered_df = df[df['State'] == 'ID']
         sta_names = filtered_df['Station Name'].tolist()
@@ -531,7 +531,7 @@ class station_corr(CompareScheme):
                 if self.has_nan(df_filtered):
                         for i in range(1, len(df_filtered)):
                             if math.isnan(df_filtered[i]):
-                                df_filtered[i] = df_filtered[i - 1]
+                                df_filtered[i] = 0 #df_filtered[i - 1]
     
                 if var == 'PRCP':
                     wrf= self.extract(scheme_files['PRCP'],ixlat,ixlon)# should be adjust according to the input data
@@ -619,4 +619,144 @@ class station_corr(CompareScheme):
         swe_correlation.to_csv('swe_station_data.csv')
         swh_correlation.to_csv('swh_station_data.csv')
 
+# take the mean snow height across all the snotel sites per day and compare this with the mean across the 
+# microphysics scheme, make a plot of each scheme with snotel
+
+
+'''
+
+        Plot snotel kge score vs elevation and compute correlation statistics
+
+'''
+
+
+def plot_KGE(swe,elevation,tyype = 'KGE'):
+    merged = pd.merge(swe, elevation, on='Name', how='inner')
+
+    listt = ['WSM6', 'WDM6', 'Thompson', 'Morrison']
+
+    plt.figure(figsize=(8,6))
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+
+    for i, df_name in enumerate(listt):
+        name = f'{df_name}_{tyype}'
+        ax = axes[i // 2, i % 2]  # Get the current axis using integer division and modulo
+        ax.scatter(merged[name], merged['Elevation'], color='green')  # Access merged DataFrame columns
+        correlation_coefficient = np.corrcoef(merged[name], merged['Elevation'])[0, 1]
+        
+        ax.text(0.05, 0.95, f'$\\rho$: {correlation_coefficient:.2f}', fontsize=8, verticalalignment='top', horizontalalignment='left', transform=ax.transAxes)
+        
+        # Fit a linear regression model
+        X = np.array(merged[name]).reshape(-1, 1)
+        y = merged['Elevation']
+        model = LinearRegression()
+        model.fit(X, y)
+
+        y_pred = model.predict(X)
+
+        # Plot the regression line
+        ax.plot(X, y_pred, color='red')
+
+        ax.set_title(df_name)
+
+        if i % 2 != 0:  # hide yticks for second plot column
+                    
+            ax.set_yticklabels([])
+                    
+        if i > 1:
+            ax.set_xlabel(f'{tyype} score')
+
+        if i%2==0:
+            ax.set_ylabel('Height')
+
+    # Adjust layout and show the plots
+    plt.tight_layout()
+    plt.show()
+
+
+
+''''
+Plot time series of snow height, precip or swe in a single snotel station across MP schemes
+'''
+class snotel_snowheight(CompareScheme):
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save = True):
+        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
+        self.var_list = ['SNOW']#, 'SNOW', 'SNOWH'
     
+
+    def has_nan(self,lst):
+        for item in lst:
+            if isinstance(item, (float, int)) and math.isnan(item):
+                return True
+            return False
+
+    def worker(self,diction,scheme):
+       
+        snotel_bucket,wrf_bucket = np.zeros(365),np.zeros(365)
+
+        all_dict = self.get_wrf_xy()
+        allfiles = self.compare_multiple(diction)
+        a, b = self.read_csv2()
+
+        scheme_files = allfiles[scheme]
+        #Extract variable from snotel csv and wrf
+        var_to_fname = {
+                        'SNOW': 'Snow Water Equivalent',
+                        } 
+        # ,
+        #             'SNOW': 'Snow Water Equivalent',
+        #                'SNOWH': 'Snow Depth'
+        mean_dict = {}
+
+        # Check single sight
+
+        sta_name = 'Prairie' # CHANGE ME!
+        sta_id =  704
+        b = {}
+        b[sta_id] = sta_name
+
+
+        num_site = len(b.keys())
+        #print(num_site)
+        for var in self.var_list:
+            for sta_id,sta_name,  in b.items():
+                #print(sta_name)
+                ixlat,ixlon = all_dict[str(sta_id)]
+                fname = var_to_fname.get(var, 'Unknown Variable')
+                generic = f'{sta_name} ({sta_id}) {fname} (in) Start of Day Values'
+                if var == 'PRCP':
+                    generic =f'{sta_name} ({sta_id}) {fname} Accumulation (in) Start of Day Values' 
+                name = f'df_{sta_id}.csv'
+                path = self.path_to_csv+'/'+name
+                df = pd.read_csv(path)
+                df = df[(df['Date'] >=self.start) & (df['Date'] <= self.end)]
+                df_filtered = df[generic].tolist()
+                df_filtered = [value * 25.4 for value in df_filtered]
+
+                '''
+                    TROUBLE SHOOT!
+                '''
+                # meann = np.mean(df_filtered)
+                # print(meann, sta_name, sta_id)
+
+                snotel_bucket += df_filtered
+                
+               
+                if var == 'PRCP':
+                    wrf= self.extract(scheme_files['PRCP'],ixlat,ixlon)# should be adjust according to the input data
+            
+    
+                if var == 'SNOW':
+                    wrf= self.extract(scheme_files['SNOW'],ixlat,ixlon) # should be adjust according to the input data
+                    # #compute correlation    
+                
+
+                if var == 'SNOWH':
+                    wrf= self.extract(scheme_files['SNOWH'],ixlat,ixlon)*1e3  # should be adjust according to the input data
+                    # #compute correlation
+
+                wrf_bucket += wrf
+
+            mean_dict[var] = (snotel_bucket/num_site,wrf/num_site)
+
+        return mean_dict
