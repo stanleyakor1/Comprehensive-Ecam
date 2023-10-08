@@ -22,6 +22,7 @@ import warnings
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import torch
 from scipy.stats import pearsonr
+from sklearn.linear_model import LinearRegression
 
 from wrf import (getvar, to_np, get_cartopy, latlon_coords, vertcross, ll_to_xy,
                  cartopy_xlim, cartopy_ylim, interpline, CoordPair, destagger, 
@@ -56,7 +57,7 @@ def regrid_snodas(wrf_file, snodas_file, var, multiple_time = True):
     if multiple_time:
         ds_snodas= ds_snodas.swap_dims({'time': 'XTIME'})
     else:   
-        ds_snodas = ds_snodas.sel(time = '2022-04-01T06:00:00')
+        ds_snodas = ds_snodas.sel(time = '2022-01-12T06:00:00')
         
     ds_snodas = ds_snodas[var]
 

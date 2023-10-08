@@ -298,7 +298,7 @@ Extract show height and SWE from snotel sites and compare with snodas/wrf on pea
 
 class hist(CompareScheme):
     def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file,\
-                 save_name,reference,snodas_regrid_file, case, max_accum_date='2022-04-01', save=True):
+                 save_name,reference,snodas_regrid_file, case, max_accum_date='2022-01-12', save=True):
         super().__init__(var,path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,reference,save)
 
         self.max_accum_date = max_accum_date
@@ -310,7 +310,7 @@ class hist(CompareScheme):
         self.hist_Wsm6 = {}
         self.hist_Thom = {}
         self.hist_Mor = {}
-        self.ttime = 184
+        self.ttime = max_accum_date #184
 
     def make(self,diction):
         self.allfile = self.compare_multiple(diction)
@@ -350,7 +350,7 @@ class hist(CompareScheme):
             if key == 'WSM6':
                 for ID, name in all_dict.items():
                     ixlat,ixlon = all_dict[str(ID)]
-                    wrf = value[var].isel(XTIME = self.ttime) #change so it is done automatically!
+                    wrf = value[var].sel(XTIME = self.ttime) #change so it is done automatically!
                     
                     if self.case == 'swe': 
                         wrf_value = self.extract(wrf,ixlat,ixlon)
@@ -362,7 +362,7 @@ class hist(CompareScheme):
             if key == 'WDM6':
                 for ID, name in all_dict.items():
                     ixlat,ixlon = all_dict[str(ID)]
-                    wrf = value[var].isel(XTIME = self.ttime) #change so it is done automatically!
+                    wrf = value[var].sel(XTIME = self.ttime) #change so it is done automatically!
                     
                     if self.case == 'swe': 
                         wrf_value = self.extract(wrf,ixlat,ixlon)
@@ -374,7 +374,7 @@ class hist(CompareScheme):
             if key == 'Morrison':
                 for ID, name in all_dict.items():
                     ixlat,ixlon = all_dict[str(ID)]
-                    wrf = value[var].isel(XTIME = self.ttime) #change so it is done automatically!
+                    wrf = value[var].sel(XTIME = self.ttime) #change so it is done automatically!
                     
                     if self.case == 'swe': 
                         wrf_value = self.extract(wrf,ixlat,ixlon)
@@ -386,7 +386,7 @@ class hist(CompareScheme):
             if key == 'Thompson':
                 for ID, name in all_dict.items():
                     ixlat,ixlon = all_dict[str(ID)]
-                    wrf = value[var].isel(XTIME = self.ttime) #change so it is done automatically!
+                    wrf = value[var].sel(XTIME = self.ttime) #change so it is done automatically!
                     
                     if self.case == 'swe': 
                         wrf_value = self.extract(wrf,ixlat,ixlon)
