@@ -35,7 +35,6 @@ def getData(SiteName, SiteID, StateAbb, StartDate, EndDate):
     
     df = pd.DataFrame.from_dict(data)
     df = df[0].str.split(',', expand=True)
-    print(len(df.columns))
     df.rename(columns={0:df[0][0], 
                        1:df[1][0], 
                        2:df[2][0],
