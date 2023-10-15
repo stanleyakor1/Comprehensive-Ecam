@@ -843,5 +843,7 @@ class precip_temp_compare(CompareScheme):
                 ax2.set_xticks([])
             if  5==i<6 or i ==4:
                 ax1.set_xticks([])
-                
+
+            if self.save:
+                 plt.savefig(self.save_name+'.pdf',dpi=600)
             
