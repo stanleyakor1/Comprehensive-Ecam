@@ -199,24 +199,6 @@ class CompareScheme(precip_snotel):
             self.wrf_file = file[self.var]
             smallest_dict, filtered_dict = self.read_csv()
             all_files_dict[key] = smallest_dict,filtered_dict
-
-           
-        # Get the keys from the first sub-dictionary
-        keys_to_check = set(all_files_dict[next(iter(all_files_dict))][0].keys())
-        #print(keys_to_check)
-        
-        # Iterate through the rest of the sub-dictionaries
-        for key in all_files_dict:
-            sub_dict_keys = all_files_dict[key][0].keys()
-            if keys_to_check != set(sub_dict_keys):
-                print(f"Keys in sub-dictionary '{key}' do not match.")
-                break
-        else:
-            print("Keys in all sub-dictionaries match.")
-
-
-        # If all schemes have best estimate at the same time, proceed
-        #if self.check:
         return all_files_dict
 
     def extract(self,file,ixlat,ixlon):
@@ -760,3 +742,106 @@ class snotel_snowheight(CompareScheme):
             mean_dict[var] = (snotel_bucket/num_site,wrf/num_site)
 
         return mean_dict
+
+
+## Times series of snow height across select snotel sites
+class precip_temp_compare(CompareScheme):
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save = True):
+        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
+        self.var_list = ['SNOWH','T2']
+        
+    def to_kelvin(self, df):
+        df = np.array(df)
+        return (df - 32) * 5/9 + 273.15
+        
+    def smallest(self,diction):
+        #Extract variable from snotel csv and wrf
+        var_to_fname = {
+                       'SNOWH': 'Snow Depth',
+                         'T2' : 'Air Temperature Average (degF)'
+                        } 
+
+        
+        all_dict = self.get_wrf_xy()
+        allfiles = self.read_multiple(diction)
+        schemes = list(allfiles.keys())
+        wrf_files = self.compare_multiple(diction)
+        a, b = self.read_csv2()
+
+                # List of keys to keep
+        desired_keys = {978, 637, 312,845}
+        
+        # Creating a new dictionary with only the desired keys
+        a = {key:a[key] for key in a if key in desired_keys}
+        b = {key:b[key] for key in b if key in desired_keys}
+        
+        date_range = pd.date_range(self.start, self.end, freq='1D')
+        plt.figure(figsize=(13, 9))
+        gs = gridspec.GridSpec(4, 2, height_ratios=[1, 4, 1, 4],hspace=0.15) 
+        
+        for i, (sta_id, sta_name) in enumerate(b.items()):
+
+            if i > 1:
+                i+=2
+                
+            for var in self.var_list:
+                ixlat,ixlon = all_dict[str(sta_id)]
+                fname = var_to_fname.get(var, 'Unknown Variable')
+                if var == 'T2':
+                    generic = f'{sta_name} ({sta_id}) {fname}'
+                        
+                else:
+                    generic = f'{sta_name} ({sta_id}) {fname} (in) Start of Day Values'
+                        
+                name = f'df_{sta_id}.csv'
+                path = self.path_to_csv+'/'+name
+                df = pd.read_csv(path)
+                df = df[(df['Date'] >=self.start) & (df['Date'] <= self.end)]
+                df_filtered = df[generic].tolist()
+                    
+                if var == 'T2':
+                    df_filtered_temp = self.to_kelvin(df_filtered)
+                    df_filtered_temp = pd.Series(df_filtered_temp).rolling(7).mean()
+                        
+                else:
+                    df_filtered_snowh = [value * 25.4 for value in df_filtered]
+    
+            ax1 = plt.subplot(gs[i])
+            ax1.plot(df_filtered_temp, label='Snotel')
+            ax1.set_title(f'{sta_name} ({sta_id})')
+            
+            ax2 = plt.subplot(gs[i+2])
+            ax2.plot(date_range,df_filtered_snowh, label='Snotel')
+
+            
+            for key1,value in wrf_files.items():
+                for var in self.var_list:
+                    
+                    if var == 'SNOWH':
+                        wrf_snowh_height= self.extract(value['SNOWH'],ixlat,ixlon)*1e3  # should be adjust according to the input data
+                    else:
+                        wrf_temp2m= self.extract(value['T2'],ixlat,ixlon)
+                        wrf_temp2m = pd.Series(wrf_temp2m).rolling(7).mean()
+    
+                                       
+                ax1.plot(wrf_temp2m, label=f'{key1}')
+                ax2.plot(date_range,wrf_snowh_height, label=f'{key1}')
+                ax2.xaxis.set_major_locator(mdates.MonthLocator())
+                ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+                #ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+                ax2.tick_params(axis='x', rotation=45)
+                
+            if i == 0 or i ==2 or i ==4:
+                ax1.set_ylabel("Temp. (K)")
+                ax2.set_ylabel("Snow height (mm)")
+                
+            if i ==0:
+                ax2.legend(loc='upper right')
+                
+            if i < 4 :
+                ax1.set_xticks([])
+                ax2.set_xticks([])
+            if  5==i<6 or i ==4:
+                ax1.set_xticks([])
+                
+            
