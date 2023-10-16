@@ -846,4 +846,89 @@ class precip_temp_compare(CompareScheme):
 
             if self.save:
                  plt.savefig(self.save_name+'.pdf',dpi=600)
+
+# Average across time for all snotel and wrf sites
+class wrf_snotel_average(CompareScheme):
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save = True):
+        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
+        self.var_list = ['SNOWH','T2']
+        
+    def to_kelvin(self, df):
+        df = np.array(df)
+        return (df - 32) * 5/9 + 273.15
+        
+    def smallest(self,diction):
+        #Extract variable from snotel csv and wrf
+        var_to_fname = {
+                       'SNOWH': 'Snow Depth',
+                         'T2' : 'Air Temperature Average (degF)'
+                        } 
+
+        
+        all_dict = self.get_wrf_xy()
+        allfiles = self.read_multiple(diction)
+        schemes = list(allfiles.keys())
+        wrf_files = self.compare_multiple(diction)
+        a, b = self.read_csv2()
+
+                # List of keys to keep
+        desired_keys = {704,423,496,769,637,978,312,550,489,306,830,450,490,845}
+        
+        # Creating a new dictionary with only the desired keys
+        a = {key:a[key] for key in a if key in desired_keys}
+        b = {key:b[key] for key in b if key in desired_keys}
+        
+        date_range = pd.date_range(self.start, self.end, freq='1D')
+        N = len(date_range)
+        n = len(desired_keys)
+        
+        plt.figure(figsize = (10,7))
+
+        colors = ['blue', 'black', 'green', 'red', 'purple'] 
+
+        for i, (key1, value) in enumerate(wrf_files.items()):
+            array_swh = np.zeros(N)
+            array_swh_snotel = np.zeros(N)
+            for sta_id,sta_name,  in b.items():
+                for var in self.var_list:
+                    ixlat,ixlon = all_dict[str(sta_id)]
+                    fname = var_to_fname.get(var, 'Unknown Variable')
+                    if var == 'T2':
+                        generic = f'{sta_name} ({sta_id}) {fname}'
+                        
+                    else:
+                        generic = f'{sta_name} ({sta_id}) {fname} (in) Start of Day Values'
+                        
+                    name = f'df_{sta_id}.csv'
+                    path = self.path_to_csv+'/'+name
+                    df = pd.read_csv(path)
+                    df = df[(df['Date'] >=self.start) & (df['Date'] <= self.end)]
+                    df_filtered = df[generic].tolist()
+                    
+                    if var == 'T2':
+                        df_filtered_temp = self.to_kelvin(df_filtered)
+                   
+                    else:
+                        df_filtered_snowh = [value * 25.4 for value in df_filtered]
+                        array_swh_snotel +=  df_filtered_snowh
+    
             
+                    if var == 'SNOWH':
+                        wrf_snowh_height= self.extract(value['SNOWH'],ixlat,ixlon)*1e3  # should be adjust according to the input data
+                        array_swh+= wrf_snowh_height
+                    else:
+                        wrf_temp2m= self.extract(value['T2'],ixlat,ixlon)
+                        
+            plt.plot(date_range,array_swh/n,label=f'{key1}',color=colors[i])
+            plt.fill_between(date_range, array_swh/n-np.std(array_swh/n), array_swh/n+np.std(array_swh/n),alpha=0.1,color=colors[i])
+        
+        plt.plot(date_range,array_swh_snotel/n,'--', color='orange',label=f'Snotel')
+        plt.fill_between(date_range, array_swh_snotel/n-np.std(array_swh_snotel/n), array_swh_snotel/n+np.std(array_swh_snotel/n),alpha=0.1,color='orange')
+        plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+        plt.gca().tick_params(axis='x', rotation=45)
+        plt.ylim(0,2000)
+        plt.legend()
+
+        if self.save:
+            plt.savefig(self.save_name+'.pdf',dpi=600)
