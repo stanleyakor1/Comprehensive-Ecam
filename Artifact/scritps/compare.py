@@ -6,14 +6,24 @@ class precip_snotel():
         self.geog = xr.open_dataset(path_to_geog)
         self.var = var
         self.dict = {}
-        self.start = '2021-10-01'
-        self.end = '2022-09-30'
+
+        # self.start = '2021-10-01'
+        # self.end = '2022-09-30'
+
+        self.start = '2022-10-01'
+        self.end = '2023-07-31'
         self.wrf = xr.open_dataset(path_to_wrf_file)
         self.wrf = self.wrf.sel(XTIME=slice(self.start, self.end))
         self.wrf_file = self.wrf[self.var]
         self.feat = {}
         self.save = save
         self.save_name = save_name
+
+    def has_nan(self,lst):
+        for item in lst:
+            if isinstance(item, (float, int)) and math.isnan(item):
+                return True
+        return False
 
     def collect_snodas_info(self):
         df = pd.read_csv(self.path_to_header)
@@ -62,6 +72,13 @@ class precip_snotel():
             df = df[(df['Date'] >=self.start) & (df['Date'] <= self.end)]
             df_filtered = df[generic].tolist()
             df_filtered = [value * 25.4 for value in df_filtered]
+            
+            # Fill up nan values with preceding values (somehow, snotel data has some empty values!)
+            if self.has_nan(df_filtered):
+                for i in range(1, len(df_filtered)):
+                    if math.isnan(df_filtered[i]):
+                        df_filtered[i] = df_filtered[i - 1] #0
+                                    
             ixlat,ixlon = dict[str(sta_id[id])]
             wrf_precip = self.extract_precip(ixlat,ixlon)
             wrf_precip = wrf_precip
@@ -136,6 +153,13 @@ class precip_snotel():
             date_range = pd.date_range(self.start, self.end, freq='1D')
             df_filtered = df[generic].tolist()
             df_filtered = [value * 25.4 for value in df_filtered]
+
+            # Fill up nan values with preceding values (somehow, snotel data has some empty values!)
+            if self.has_nan(df_filtered):
+                for i in range(1, len(df_filtered)):
+                    if math.isnan(df_filtered[i]):
+                            df_filtered[i] = df_filtered[i - 1] #0
+            
             ixlat,ixlon = all_dict[str(key)]
             wrf_precip = self.extract_precip(ixlat,ixlon)
             ax.plot(date_range,df_filtered,'r--', label=f'snotel')
@@ -231,8 +255,14 @@ class CompareScheme(precip_snotel):
             date_range = pd.date_range(self.start, self.end, freq='1D')
             df_filtered = df[generic].tolist()
             df_filtered = [value * 25.4 for value in df_filtered]
+
+            # Fill up nan values with preceding values (somehow, snotel data has some empty values!)
+            if self.has_nan(df_filtered):
+                for i in range(1, len(df_filtered)):
+                    if math.isnan(df_filtered[i]):
+                        df_filtered[i] = df_filtered[i - 1] #0
+            
             ixlat,ixlon = all_dict[str(key)]
-            #print(ixlat,ixlon)
             ax.plot(date_range,df_filtered,'r--', label=f'snotel')
 
             for key1,value in wrf_files.items():
@@ -776,7 +806,7 @@ class precip_temp_compare(CompareScheme):
         b = {key:b[key] for key in b if key in desired_keys}
         
         date_range = pd.date_range(self.start, self.end, freq='1D')
-        plt.figure(figsize=(13, 9))
+        plt.figure(figsize=(16, 10))
         gs = gridspec.GridSpec(4, 2, height_ratios=[1, 4, 1, 4],hspace=0.15) 
         
         for i, (sta_id, sta_name) in enumerate(b.items()):
@@ -807,11 +837,11 @@ class precip_temp_compare(CompareScheme):
                     df_filtered_snowh = [value * 25.4 for value in df_filtered]
     
             ax1 = plt.subplot(gs[i])
-            ax1.plot(df_filtered_temp, label='Snotel')
+            ax1.plot(df_filtered_temp,'--', label='Snotel')
             ax1.set_title(f'{sta_name} ({sta_id})')
             
             ax2 = plt.subplot(gs[i+2])
-            ax2.plot(date_range,df_filtered_snowh, label='Snotel')
+            ax2.plot(date_range,df_filtered_snowh,'--', label='Snotel')
 
             
             for key1,value in wrf_files.items():
@@ -836,7 +866,7 @@ class precip_temp_compare(CompareScheme):
                 ax2.set_ylabel("Snow height (mm)")
                 
             if i ==0:
-                ax2.legend(loc='upper right')
+                ax2.legend(loc='upper left')
                 
             if i < 4 :
                 ax1.set_xticks([])
@@ -847,24 +877,55 @@ class precip_temp_compare(CompareScheme):
             if self.save:
                  plt.savefig(self.save_name+'.pdf',dpi=600)
 
-# Average across time for all snotel and wrf sites
-class wrf_snotel_average(CompareScheme):
+## Average across time for all snotel and wrf sites
+## Average across time for all snotel and wrf sites
+class snotel_average(CompareScheme):
     def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save = True):
         super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
-        self.var_list = ['SNOWH','T2']
+        
+        self.var_list = ['SNOWH']
         
     def to_kelvin(self, df):
         df = np.array(df)
         return (df - 32) * 5/9 + 273.15
-        
-    def smallest(self,diction):
-        #Extract variable from snotel csv and wrf
-        var_to_fname = {
-                       'SNOWH': 'Snow Depth',
-                         'T2' : 'Air Temperature Average (degF)'
-                        } 
 
+    def has_nan(self,lst):
+        for item in lst:
+            if isinstance(item, (float, int)) and math.isnan(item):
+                return True
+        return False
         
+    def compute(self,diction,type):
+
+        if type is None:
+            raise Exception('Please select a type: SNOW, SNOWH, or PRCP')
+    
+        if type == 'SNOWH':
+            #Extract variable from snotel csv and wrf
+            var_to_fname = {
+                           'SNOWH': 'Snow Depth'
+                            } 
+            
+        if type == 'SNOW':
+            var_to_fname = {
+                           'SNOW': 'Snow Water Equivalent'
+                                } 
+            
+            self.var_list = ['SNOW']
+                        
+        if type == 'PRCP':
+            var_to_fname = {
+                           'PRCP': 'Precipitation Accumulation'
+                            } 
+            self.var_list = ['PRCP']
+
+        if type == 'T2':
+            var_to_fname = {'T2' : 'Air Temperature Average (degF)'}
+
+            self.var_list = ['T2']
+            
+        # print(self.var_list)
+        # print(var_to_fname)
         all_dict = self.get_wrf_xy()
         allfiles = self.read_multiple(diction)
         schemes = list(allfiles.keys())
@@ -872,7 +933,7 @@ class wrf_snotel_average(CompareScheme):
         a, b = self.read_csv2()
 
                 # List of keys to keep
-        desired_keys = {704,423,496,769,637,978,312,550,489,306,830,450,490,845}
+        desired_keys ={704,423,496,769,637,978,312,550,489,306,830,450,490,845} #{537} #
         
         # Creating a new dictionary with only the desired keys
         a = {key:a[key] for key in a if key in desired_keys}
@@ -881,18 +942,19 @@ class wrf_snotel_average(CompareScheme):
         date_range = pd.date_range(self.start, self.end, freq='1D')
         N = len(date_range)
         n = len(desired_keys)
-        
-        plt.figure(figsize = (10,7))
+        plt.figure(figsize = (12,8))
 
         colors = ['blue', 'black', 'green', 'red', 'purple'] 
 
-        for i, (key1, value) in enumerate(wrf_files.items()):
+
+        for j, (key1, value) in enumerate(wrf_files.items()):
             array_swh = np.zeros(N)
             array_swh_snotel = np.zeros(N)
             for sta_id,sta_name,  in b.items():
                 for var in self.var_list:
                     ixlat,ixlon = all_dict[str(sta_id)]
                     fname = var_to_fname.get(var, 'Unknown Variable')
+                    
                     if var == 'T2':
                         generic = f'{sta_name} ({sta_id}) {fname}'
                         
@@ -904,31 +966,47 @@ class wrf_snotel_average(CompareScheme):
                     df = pd.read_csv(path)
                     df = df[(df['Date'] >=self.start) & (df['Date'] <= self.end)]
                     df_filtered = df[generic].tolist()
-                    
-                    if var == 'T2':
-                        df_filtered_temp = self.to_kelvin(df_filtered)
-                   
-                    else:
-                        df_filtered_snowh = [value * 25.4 for value in df_filtered]
-                        array_swh_snotel +=  df_filtered_snowh
-    
-            
-                    if var == 'SNOWH':
-                        wrf_snowh_height= self.extract(value['SNOWH'],ixlat,ixlon)*1e3  # should be adjust according to the input data
-                        array_swh+= wrf_snowh_height
-                    else:
-                        wrf_temp2m= self.extract(value['T2'],ixlat,ixlon)
+                    # Fill up nan values with preceding values (somehow, snotel data has some empty values!)
+                    if self.has_nan(df_filtered):
+                            for i in range(1, len(df_filtered)):
+                                if math.isnan(df_filtered[i]):
+                                    df_filtered[i] = df_filtered[i - 1] #0
+
+                    if var != 'T2':
+                        df_filtered= [value * 25.4 for value in df_filtered]
                         
-            plt.plot(date_range,array_swh/n,label=f'{key1}',color=colors[i])
-            plt.fill_between(date_range, array_swh/n-np.std(array_swh/n), array_swh/n+np.std(array_swh/n),alpha=0.1,color=colors[i])
+                    else:
+                        df_filtered = self.to_kelvin(df_filtered)
+                    array_swh_snotel +=  df_filtered
+             
+                    wrf_snowh_height= self.extract(value[var],ixlat,ixlon) #*1e3  # should be adjust according to the input data
+
+                    if var == 'SNOWH':
+                        wrf_snowh_height *= 1e3
+                    array_swh += wrf_snowh_height
+
+            plt.plot(date_range,array_swh/n,label=f'{key1}',color=colors[j])
+            #plt.fill_between(date_range, array_swh/n-np.std(array_swh/n), array_swh/n+np.std(array_swh/n),alpha=0.1,color=colors[j])
         
         plt.plot(date_range,array_swh_snotel/n,'--', color='orange',label=f'Snotel')
         plt.fill_between(date_range, array_swh_snotel/n-np.std(array_swh_snotel/n), array_swh_snotel/n+np.std(array_swh_snotel/n),alpha=0.1,color='orange')
         plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
         plt.gca().tick_params(axis='x', rotation=45)
-        plt.ylim(0,2000)
+        plt.ylim(np.max((0, np.min(array_swh_snotel/n-np.std(array_swh_snotel/n)))),np.max(array_swh_snotel/n+np.std(array_swh_snotel/n)))
+        plt.xlim(date_range[0], date_range[-1])
         plt.legend()
+
+        if type == 'SNOW':
+            plt.ylabel('Snow water equivalent (mm)')
+        if type ==  'SNOWH':
+            plt.ylabel('Snow height (mm)')
+
+        if type == 'PRCP':
+            plt.ylabel('Accumulated precipitation (mm)')
+
+        if type == 'T2':
+            plt.ylabel('Temperature (K)')
 
         if self.save:
             plt.savefig(self.save_name+'.pdf',dpi=600)
