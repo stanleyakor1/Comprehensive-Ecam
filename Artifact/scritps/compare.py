@@ -524,6 +524,13 @@ class station_corr(CompareScheme):
                        'SNOWH': 'Snow Depth'
                         } 
         
+        # desired_keys ={704,423,496,769,637,978,312,550,489,306,830,450,490,845} #{537} #
+        
+        # # Creating a new dictionary with only the desired keys
+        # a = {key:a[key] for key in a if key in desired_keys}
+        # b = {key:b[key] for key in b if key in desired_keys}
+
+        
         for sta_id,sta_name,  in b.items():
             site_name.append(f'{sta_name} ({sta_id})')
             for var in self.var_list:
@@ -584,35 +591,53 @@ class station_corr(CompareScheme):
 
     def make(self, diction, type):
         #return self.worker(diction,'WSM6', type)
-        wsm6_df = self.worker(diction,'WSM6', type)
-        wdm6_df = self.worker(diction,'WDM6', type)
-        th_df = self.worker(diction,'Thompson', type)
-        mor_df = self.worker(diction,'Morrison', type)
-        listt = [wsm6_df,wdm6_df, th_df,  mor_df ]
+        wsm6_cfs_df = self.worker(diction,'WSM6-CFS', type)  
+        wdm6_cfs_df = self.worker(diction,'WDM6-CFS', type)
+        th_cfs_df = self.worker(diction,'Thompson-CFS', type)   
+        mor_cfs_df = self.worker(diction,'Morrison-CFS', type)
 
-        precip_correlation = pd.DataFrame({'Name' : wsm6_df['Name'],
-                                            'WSM6_'+type : wsm6_df['PRCP_'+type],
-                                            'WDM6_'+type : wdm6_df['PRCP_'+type],
-                                            'Thompson_'+type : th_df['PRCP_'+type],
-                                            'Morrison_'+type : mor_df['PRCP_'+type]
+        wsm6_era_df = self.worker(diction,'WSM6-ERA', type)
+        wdm6_era_df = self.worker(diction,'WDM6-ERA', type)
+        th_era_df = self.worker(diction,'Thompson-ERA', type)
+        mor_era_df = self.worker(diction,'Morrison-ERA', type)
+
+        # listt = [wsm6_df,wdm6_df, th_df,  mor_df ]
+
+        precip_correlation = pd.DataFrame({'Name' : wsm6_cfs_df['Name'],
+                                            'WS-CFS' : wsm6_cfs_df['PRCP_'+type],
+                                            'WD-CFS' : wdm6_cfs_df['PRCP_'+type],
+                                            'TH-CFS' : th_cfs_df['PRCP_'+type],
+                                            'MOR-CFS' : mor_cfs_df['PRCP_'+type],
+                                            'WS-ERA' : wsm6_era_df['PRCP_'+type],
+                                            'WD-ERA': wdm6_era_df['PRCP_'+type],
+                                            'TH-ERA' : th_era_df['PRCP_'+type],
+                                            'MOR-ERA' : mor_era_df['PRCP_'+type],
                                             })
         precip_correlation.set_index('Name', inplace=True)
 
         ## swe corr dataframe
-        swe_correlation = pd.DataFrame({'Name' : wsm6_df['Name'],
-                                            'WSM6_'+type : wsm6_df['SWE_'+type],
-                                            'WDM6_'+type : wdm6_df['SWE_'+type],
-                                            'Thompson_'+type : th_df['SWE_'+type],
-                                            'Morrison_'+type : mor_df['SWE_'+type]
+        swe_correlation = pd.DataFrame({'Name' : wsm6_cfs_df['Name'],
+                                            'WS-CFS' : wsm6_cfs_df['SWE_'+type],
+                                            'WD-CFS' : wdm6_cfs_df['SWE_'+type],
+                                            'TH-CFS' : th_cfs_df['SWE_'+type],
+                                            'MOR-CFS' : mor_cfs_df['SWE_'+type],
+                                            'WS-ERA' : wsm6_era_df['SWE_'+type],
+                                            'WD-ERA' : wdm6_era_df['SWE_'+type],
+                                            'TH-ERA': th_era_df['SWE_'+type],
+                                            'MOR-ERA': mor_era_df['SWE_'+type],
                                             })
         swe_correlation.set_index('Name', inplace=True)
 
         # snowh corr dataframe
-        swh_correlation = pd.DataFrame({'Name' : wsm6_df['Name'],
-                                            'WSM6_'+type : wsm6_df['SNOWH_'+type],
-                                            'WDM6_'+type : wdm6_df['SNOWH_'+type],
-                                            'Thompson_'+type : th_df['SNOWH_'+type],
-                                            'Morrison_'+type : mor_df['SNOWH_'+type]
+        swh_correlation = pd.DataFrame({'Name' : wsm6_cfs_df['Name'],
+                                            'WS-CFS': wsm6_cfs_df['SNOWH_'+type],
+                                            'WD-CFS': wdm6_cfs_df['SNOWH_'+type],
+                                            'TH-CFS' : th_cfs_df['SNOWH_'+type],
+                                             'MOR-CFS' : mor_cfs_df['SNOWH_'+type],
+                                           'WS-ERA': wsm6_era_df['SNOWH_'+type],
+                                               'WD-ERA': wdm6_era_df['SNOWH_'+type],
+                                              'TH-ERA' : th_era_df['SNOWH_'+type],
+                                            'MOR-ERA' : mor_era_df['SNOWH_'+type],
                                             })
         swh_correlation.set_index('Name', inplace=True)
 
@@ -880,7 +905,7 @@ class precip_temp_compare(CompareScheme):
 ## Average across time for all snotel and wrf sites
 ## Average across time for all snotel and wrf sites
 class snotel_average(CompareScheme):
-    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save = True):
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference,save = True):
         super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
         
         self.var_list = ['SNOWH']
@@ -895,7 +920,7 @@ class snotel_average(CompareScheme):
                 return True
         return False
         
-    def compute(self,diction,type):
+    def compute(self,diction,type,ax,legend = False):
 
         if type is None:
             raise Exception('Please select a type: SNOW, SNOWH, or PRCP')
@@ -923,7 +948,38 @@ class snotel_average(CompareScheme):
             var_to_fname = {'T2' : 'Air Temperature Average (degF)'}
 
             self.var_list = ['T2']
+
+        def get_marker_and_color(key1):
+            color_dict = {'E': 'green', 'R': 'blue', 'A': 'red'}
             
+            if key1[0:2] == 'MO':
+                marker = '--'
+                if 'E' in key1:
+                    color = color_dict['E']
+                else:
+                    color = color_dict['A']
+            
+            if key1[0:2] == 'TH':
+                marker = ':'
+                if 'E' in key1:
+                    color = color_dict['E']
+                else:
+                    color = color_dict['A']
+          
+            if key1[0:2] == 'WD':
+                marker = '-.'
+                if 'E' in key1:
+                    color = color_dict['E']
+                else:
+                    color = color_dict['A']
+            if key1[0:2] == 'WS':
+                marker = '-'
+                if 'E' in key1:
+                    color = color_dict['E']
+                else:
+                    color = color_dict['A']
+        
+            return marker, color
         # print(self.var_list)
         # print(var_to_fname)
         all_dict = self.get_wrf_xy()
@@ -933,19 +989,19 @@ class snotel_average(CompareScheme):
         a, b = self.read_csv2()
 
                 # List of keys to keep
-        desired_keys ={704,423,496,769,637,978,312,550,489,306,830,450,490,845} #{537} #
+        # desired_keys ={704,423,496,769,637,978,312,550,489,306,830,450,490,845} #{537} #
         
-        # Creating a new dictionary with only the desired keys
-        a = {key:a[key] for key in a if key in desired_keys}
-        b = {key:b[key] for key in b if key in desired_keys}
+        # # Creating a new dictionary with only the desired keys
+        # a = {key:a[key] for key in a if key in desired_keys}
+        # b = {key:b[key] for key in b if key in desired_keys}
         
         date_range = pd.date_range(self.start, self.end, freq='1D')
         N = len(date_range)
-        n = len(desired_keys)
+        n = len(a)
         plt.figure(figsize = (12,8))
 
-        colors = ['blue', 'black', 'green', 'red', 'purple'] 
-
+        colors = ['blue', 'red']
+       
 
         for j, (key1, value) in enumerate(wrf_files.items()):
             array_swh = np.zeros(N)
@@ -984,18 +1040,167 @@ class snotel_average(CompareScheme):
                     if var == 'SNOWH':
                         wrf_snowh_height *= 1e3
                     array_swh += wrf_snowh_height
+                    
+            marker, color = get_marker_and_color(key1)
+            
+            ax.plot(date_range,array_swh/n,marker,label=f'{key1}',color=color,linewidth=2)
+            #plt.fill_between(date_range, array_swh/n-np.std(array_swh/n), array_swh/n+np.std(array_swh/n),alpha=0.1,color=colors[j])
+        
+        ax.plot(date_range,array_swh_snotel/n,'--', color='black',label=f'Snotel',linewidth=2)
+        ax.fill_between(date_range, array_swh_snotel/n-np.std(array_swh_snotel/n), array_swh_snotel/n+np.std(array_swh_snotel/n),alpha=0.1,color='black')
+        ax.xaxis.set_major_locator(mdates.MonthLocator())
+        #ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
+        ax.tick_params(axis='x', rotation=45)
+        ax.set_ylim(np.max((0, np.min(array_swh_snotel/n-np.std(array_swh_snotel/n)))),np.max(array_swh_snotel/n+np.std(array_swh_snotel/n)))
+        ax.set_xlim(date_range[0], date_range[-1])
+
+        if legend:
+            ax.legend()
+
+        if type == 'SNOW':
+            ax.set_ylabel('Snow water equivalent (mm)')
+        if type ==  'SNOWH':
+            ax.set_ylabel('Snow Depth (mm)')
+
+        if type == 'PRCP':
+            ax.set_ylabel('Accumulated precipitation (mm)')
+
+        if type == 'T2':
+            ax.set_ylabel('Temperature (K)')
+
+        # if self.save:
+        #     ax.savefig(self.save_name+'.pdf',dpi=600)
+
+
+class snotel_average_diagnostics(CompareScheme):
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference,snodas, save = True):
+        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
+        
+        self.var_list = ['SNOWH']
+        self.snodas = snodas
+        
+    def to_kelvin(self, df):
+        df = np.array(df)
+        return (df - 32) * 5/9 + 273.15
+
+    def has_nan(self,lst):
+        for item in lst:
+            if isinstance(item, (float, int)) and math.isnan(item):
+                return True
+        return False
+        
+    def compute(self,diction,type,legend = False):
+
+        if type is None:
+            raise Exception('Please select a type: SNOW, SNOWH, or PRCP')
+    
+        if type == 'SNOWH':
+            #Extract variable from snotel csv and wrf
+            var_to_fname = {
+                           'SNOWH': 'Snow Depth'
+                            } 
+            
+        if type == 'SNOW':
+            var_to_fname = {
+                           'SNOW': 'Snow Water Equivalent'
+                                } 
+            
+            self.var_list = ['SNOW']
+                        
+        if type == 'PRCP':
+            var_to_fname = {
+                           'PRCP': 'Precipitation Accumulation'
+                            } 
+            self.var_list = ['PRCP']
+
+        if type == 'T2':
+            var_to_fname = {'T2' : 'Air Temperature Average (degF)'}
+
+            self.var_list = ['T2']
+            
+        # print(self.var_list)
+        # print(var_to_fname)
+        all_dict = self.get_wrf_xy()
+        allfiles = self.read_multiple(diction)
+        schemes = list(allfiles.keys())
+        wrf_files = self.compare_multiple(diction)
+        a, b = self.read_csv2()
+
+                # List of keys to keep
+        # desired_keys ={704,423,496,769,637,978,312,550,489,306,830,450,490,845} #{537} #
+        
+        # # Creating a new dictionary with only the desired keys
+        # a = {key:a[key] for key in a if key in desired_keys}
+        # b = {key:b[key] for key in b if key in desired_keys}
+        
+        date_range = pd.date_range(self.start, self.end, freq='1D')
+        N = len(date_range)
+        n = len(b)
+        plt.figure(figsize = (12,8))
+
+        colors = ['blue', 'orange', 'green', 'red', 'purple'] 
+
+
+        for j, (key1, value) in enumerate(wrf_files.items()):
+            array_swh = np.zeros(N)
+            array_swh_snotel = np.zeros(N)
+            snodas_array = np.zeros(N)
+            for sta_id,sta_name,  in b.items():
+                for var in self.var_list:
+                    ixlat,ixlon = all_dict[str(sta_id)]
+                    fname = var_to_fname.get(var, 'Unknown Variable')
+                    
+                    if var == 'T2':
+                        generic = f'{sta_name} ({sta_id}) {fname}'
+                        
+                    else:
+                        generic = f'{sta_name} ({sta_id}) {fname} (in) Start of Day Values'
+                        
+                    name = f'df_{sta_id}.csv'
+                    path = self.path_to_csv+'/'+name
+                    df = pd.read_csv(path)
+                    df = df[(df['Date'] >=self.start) & (df['Date'] <= self.end)]
+                    df_filtered = df[generic].tolist()
+                    # Fill up nan values with preceding values (somehow, snotel data has some empty values!)
+                    if self.has_nan(df_filtered):
+                            for i in range(1, len(df_filtered)):
+                                if math.isnan(df_filtered[i]):
+                                    df_filtered[i] = df_filtered[i - 1] #0
+
+                    if var != 'T2':
+                        df_filtered= [value * 25.4 for value in df_filtered]
+                        
+                    else:
+                        df_filtered = self.to_kelvin(df_filtered)
+                    array_swh_snotel +=  df_filtered
+             
+                    wrf_snowh_height= self.extract(value[var],ixlat,ixlon) #*1e3  # should be adjust according to the input data
+                    snodas =  self.extract(self.snodas,ixlat,ixlon)
+
+                    if var == 'SNOWH':
+                        wrf_snowh_height *= 1e3
+                    array_swh += wrf_snowh_height
+                    snodas_array += snodas
+            
+        
 
             plt.plot(date_range,array_swh/n,label=f'{key1}',color=colors[j])
             #plt.fill_between(date_range, array_swh/n-np.std(array_swh/n), array_swh/n+np.std(array_swh/n),alpha=0.1,color=colors[j])
         
-        plt.plot(date_range,array_swh_snotel/n,'--', color='orange',label=f'Snotel')
-        plt.fill_between(date_range, array_swh_snotel/n-np.std(array_swh_snotel/n), array_swh_snotel/n+np.std(array_swh_snotel/n),alpha=0.1,color='orange')
+        if var != 'PRCP':
+            plt.plot(date_range,snodas_array/n,label=f'Snodas',color='cyan',linestyle='--')
+
+        plt.plot(date_range,array_swh_snotel/n,'--', color='black',label=f'Snotel')
+        plt.fill_between(date_range, array_swh_snotel/n-np.std(array_swh_snotel/n), array_swh_snotel/n+np.std(array_swh_snotel/n),alpha=0.1,color='black')
         plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
         plt.gca().tick_params(axis='x', rotation=45)
         plt.ylim(np.max((0, np.min(array_swh_snotel/n-np.std(array_swh_snotel/n)))),np.max(array_swh_snotel/n+np.std(array_swh_snotel/n)))
         plt.xlim(date_range[0], date_range[-1])
-        plt.legend()
+
+        if legend:
+            plt.legend()
 
         if type == 'SNOW':
             plt.ylabel('Snow water equivalent (mm)')
