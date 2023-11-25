@@ -1,17 +1,28 @@
+# A COLLECTION OF PYTHON SCRIPTS TO ANALYSIS WRF OUTPUT FILES
+
 from packages import *
 class precip_snotel():
-    def __init__(self,var, path_to_header,path_to_csv,path_to_geog,path_to_wrf_file,save_name, save = True):
+    def __init__(self,var, path_to_header,path_to_csv,path_to_geog,path_to_wrf_file,save_name,start,stop, save = True):
+        
+        """
+        Parameters:
+            variable (str): Variable of interest from the WRF output file
+            path_to_header (str): Path to NRC SNOTEL location information
+            path_to_csv (str): Path to SNOTEL datasets for the WRF domain
+            path_to_geog (str): Path to WRF intermediary file (geo_d02.nc)
+            path_to_wrf_file (str): Path to WRF input file
+            save_name (str): Save the generated PDF/PNG file
+            start (str): Start date of analysis
+            stop (str): End date of analysis
+            save (bool): Boolean flag to control saving of results (default is True)
+        """
         self.path_to_header = path_to_header
         self.path_to_csv = path_to_csv
         self.geog = xr.open_dataset(path_to_geog)
         self.var = var
         self.dict = {}
-
-        # self.start = '2021-10-01'
-        # self.end = '2022-09-30'
-
-        self.start = '2022-10-01'
-        self.end = '2023-07-31'
+        self.start = start 
+        self.end = stop 
         self.wrf = xr.open_dataset(path_to_wrf_file)
         self.wrf = self.wrf.sel(XTIME=slice(self.start, self.end))
         self.wrf_file = self.wrf[self.var]
@@ -20,16 +31,34 @@ class precip_snotel():
         self.save_name = save_name
 
     def has_nan(self,lst):
+        '''
+            Check if there are any NaN values in the given list.
+        
+            Parameters:
+                data_list (list): List to be checked for NaN values.
+        
+            Returns:
+                bool: True if there are NaN values, False otherwise.
+        '''
         for item in lst:
             if isinstance(item, (float, int)) and math.isnan(item):
                 return True
         return False
 
-    def collect_snodas_info(self):
+    def collect_snotel_info(self):
+        '''
+         
+        Collects information about NRC SNOTEL sites within the inner WRF domain for Boise.
+        
+        Returns: 
+                lat (list): List of latitudes of the SNOTEL sites.
+                lon (list): List of longitudes of the SNOTEL sites.
+                sta_names (list): List of names of the SNOTEL sites.
+                sta_id (list): List of ID numbers of the SNOTEL sites.
+        '''
         df = pd.read_csv(self.path_to_header)
-        df = df[(44.35894 >= df['Latitude']) & (df['Latitude'] >= 42.603153) &\
-                (-113.64972 >= df['Longitude']) & (df['Longitude'] >= -116.31619) ] #& (df['Elevation']>=9000)
-
+        df = df[(44.35894 >= df['Latitude']) & (df['Latitude'] >= 42.603153) & (-113.64972 >= df['Longitude']) & (df['Longitude'] >= -116.31619) ] #& (df['Elevation']>=9000)
+    
         filtered_df = df[df['State'] == 'ID']
         sta_names = filtered_df['Station Name'].tolist()
         lat = filtered_df['Latitude'].tolist()
@@ -38,10 +67,18 @@ class precip_snotel():
         return lat,lon,sta_names,sta_id
 
     def get_wrf_xy(self):
+
+        '''
+            Converts SNOTEL latitude/longitude pairs to WRF xy indices.
+        
+            Returns:
+                dict (dictionary): A dictionary containing tuples of SNOTEL IDs mapped to their respective WRF xy indices.
+        '''
+        
         xlat = self.geog.XLAT.values[0,:,:]
         xlon = self.geog.XLONG.values[0,:,:]
 
-        lat, lon, sta_names, sta_id = self.collect_snodas_info()
+        lat, lon, sta_names, sta_id = self.collect_snotel_info()
         
         for x,y,z in zip(lat,lon,sta_id):
             dist = np.sqrt((xlat - x)**2 + (xlon - y)**2)
@@ -54,14 +91,33 @@ class precip_snotel():
         return self.dict
 
     def extract_precip(self,ixlat,ixlon):
+        '''
+            Extracts precip from a WRF input file using SNOTEL xy pair
+
+            Input:
+                ixlat (int): sites's latitude but in WRF x index
+                ixlon (int): sites's longnitude but in WRF y index
+
+            Returns: A list of precipitation records for a given time period 
+                    
+        '''
+        
+        
         return self.wrf_file.isel(south_north = ixlat, west_east = ixlon).values
     
     def read_csv(self):
-        
+        '''
+            Collect 23 SNOTEL sites information and automate the process of extracting the climate variable from them and WRF.
+            
+
+            Returns:
+                smallest_dict, filtered_dict (dictionary) :  Contains the top six sites with the smallest bias when compared WRF is compared against SNOTEL
+                
+        '''
         best = True
         worse = False
         
-        lat, lon, sta_names, sta_id = self.collect_snodas_info()
+        lat, lon, sta_names, sta_id = self.collect_snotel_info()
         dict = self.get_wrf_xy()
         names = {}
         for id in range(len(sta_id)):
@@ -105,7 +161,7 @@ class precip_snotel():
 
     def read_csv2(self):
         
-        lat, lon, sta_names, sta_id = self.collect_snodas_info()
+        lat, lon, sta_names, sta_id = self.collect_snotel_info()
         dict = self.get_wrf_xy()
         names = {}
         for id in range(len(sta_id)):
@@ -137,6 +193,11 @@ class precip_snotel():
         return smallest_dict, filtered_dict
 
     def compare_smallest(self):
+
+        '''
+            Plot WRF vs SNOTEL for the best six sites
+        '''
+        
         all_dict = self.get_wrf_xy()
         dict, filtered_dict = self.read_csv()
         allkeys = np.array(list(dict.keys()))
@@ -198,16 +259,25 @@ class precip_snotel():
 
 
 class CompareScheme(precip_snotel):  
-    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save = True):
-        super().__init__(var,path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,save)
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference, save = True):
+        super().__init__(var,path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop,save)
         self.allfile = {}
         self.check = False
 
+
         '''
-        Initialize the first file, this certainly should be improved!
+                Allows for comparison against several combinations of microphysics and boundary conditions
+
+                Parameters:
+                        reference :- A microphysics-boundary condition pair to use as basis of comparison
+        
         
         '''
+
+  
+        #Initialize the first file, this certainly should be improved!
         self.allfile[reference] = self.wrf
+        
     def compare_multiple(self,diction):
         for key,value in diction.items():
             self.wrf = xr.open_dataset(value)
@@ -304,14 +374,14 @@ class CompareScheme(precip_snotel):
             
             
 '''
-Extract show height and SWE from snotel sites and compare with snodas/wrf on peak day!
+Extract snow height and SWE from snotel sites and compare with snodas/wrf on peak day!
 
 '''
 
 class hist(CompareScheme):
     def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file,\
-                 save_name,reference,snodas_regrid_file, case, max_accum_date='2022-01-12', save=True):
-        super().__init__(var,path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,reference,save)
+                 save_name,start,stop,reference,snodas_regrid_file, case, max_accum_date='2022-01-12', save=True):
+        super().__init__(var,path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop,reference,save)
 
         self.max_accum_date = max_accum_date
         self.case = case
@@ -471,15 +541,14 @@ class hist(CompareScheme):
             plt.savefig(self.save_name+'.pdf',dpi=600)
 
 '''
-Compare correlation coefficient (wrf and snotel)
+Compare correlation/KGE/NSE coefficient (wrf and snotel)
 across the various microphysics schemes
 
 '''
 
-
 class station_corr(CompareScheme):
-    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save = True):
-        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference, save = True):
+        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference, save)
 
         self.var_list = ['PRCP', 'SNOW', 'SNOWH']
 
@@ -641,33 +710,26 @@ class station_corr(CompareScheme):
                                             })
         swh_correlation.set_index('Name', inplace=True)
 
-        # print(f" Precipitation {type} coefficient across microphysics schemes")
-        # print(precip_correlation)
-        # print("  ")
-
-        # print(" SWE {type} coefficient across microphysics schemes")
-        # print(swe_correlation)
-        # print("  ")
-        
-        # print(" snow height {type} coefficient across microphysics schemes")
-        # print(swh_correlation)
-
         precip_correlation.to_csv('precip_station_data.csv')
         swe_correlation.to_csv('swe_station_data.csv')
         swh_correlation.to_csv('swh_station_data.csv')
 
-# take the mean snow height across all the snotel sites per day and compare this with the mean across the 
-# microphysics scheme, make a plot of each scheme with snotel
-
-
-'''
-
-        Plot snotel kge score vs elevation and compute correlation statistics
-
-'''
-
 
 def plot_KGE(swe,elevation,tyype = 'KGE'):
+
+    
+    '''
+    
+            Plot snotel kge score vs elevation and compute correlation statistics
+
+            Parameters:
+                swe (dataframe): dataframe of all the sites with their respective KGE for all experiments
+                elevation (dataframe): df of elevation for all the sites
+                tyype (str): NSE or KGE
+    
+    '''
+
+    
     merged = pd.merge(swe, elevation, on='Name', how='inner')
 
     listt = ['WSM6', 'WDM6', 'Thompson', 'Morrison']
@@ -712,12 +774,14 @@ def plot_KGE(swe,elevation,tyype = 'KGE'):
 
 
 
-''''
-Plot time series of snow height, precip or swe in a single snotel station across MP schemes
-'''
 class snotel_snowheight(CompareScheme):
-    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save = True):
-        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
+    
+    ''''
+    Plot time series of snow height, precip or swe in a single snotel station across MP schemes
+    '''
+    
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference, save = True):
+        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference, save)
         self.var_list = ['SNOW']#, 'SNOW', 'SNOWH'
     
 
@@ -799,11 +863,45 @@ class snotel_snowheight(CompareScheme):
         return mean_dict
 
 
+
 ## Times series of snow height across select snotel sites
 class precip_temp_compare(CompareScheme):
-    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save = True):
-        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference, save = True):
+        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference, save)
         self.var_list = ['SNOWH','T2']
+
+   
+    def get_marker_and_color(self,key1):
+        color_dict = {'E': 'green', 'R': 'blue', 'A': 'red'}
+        
+        if key1[0:2] == 'MO':
+            marker = '--'
+            if 'E' in key1:
+                color = color_dict['E']
+            else:
+                color = color_dict['A']
+        
+        if key1[0:2] == 'TH':
+            marker = ':'
+            if 'E' in key1:
+                color = color_dict['E']
+            else:
+                color = color_dict['A']
+      
+        if key1[0:2] == 'WD':
+            marker = '-.'
+            if 'E' in key1:
+                color = color_dict['E']
+            else:
+                color = color_dict['A']
+        if key1[0:2] == 'WS':
+            marker = '-'
+            if 'E' in key1:
+                color = color_dict['E']
+            else:
+                color = color_dict['A']
+    
+        return marker, color
         
     def to_kelvin(self, df):
         df = np.array(df)
@@ -862,11 +960,11 @@ class precip_temp_compare(CompareScheme):
                     df_filtered_snowh = [value * 25.4 for value in df_filtered]
     
             ax1 = plt.subplot(gs[i])
-            ax1.plot(df_filtered_temp,'--', label='Snotel')
+            ax1.plot(df_filtered_temp,'--', label='Snotel',color = 'black')
             ax1.set_title(f'{sta_name} ({sta_id})')
             
             ax2 = plt.subplot(gs[i+2])
-            ax2.plot(date_range,df_filtered_snowh,'--', label='Snotel')
+            ax2.plot(date_range,df_filtered_snowh,'--', label='Snotel',color = 'black')
 
             
             for key1,value in wrf_files.items():
@@ -878,11 +976,13 @@ class precip_temp_compare(CompareScheme):
                         wrf_temp2m= self.extract(value['T2'],ixlat,ixlon)
                         wrf_temp2m = pd.Series(wrf_temp2m).rolling(7).mean()
     
-                                       
-                ax1.plot(wrf_temp2m, label=f'{key1}')
-                ax2.plot(date_range,wrf_snowh_height, label=f'{key1}')
+                marker, color = self.get_marker_and_color(key1)    
+                
+                ax1.plot(wrf_temp2m,marker,label=f'{key1}',color=color,linewidth=2)
+                ax2.plot(date_range,wrf_snowh_height,marker,label=f'{key1}',color=color,linewidth=2)
                 ax2.xaxis.set_major_locator(mdates.MonthLocator())
-                ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+                #ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+                ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
                 #ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
                 ax2.tick_params(axis='x', rotation=45)
                 
@@ -902,11 +1002,12 @@ class precip_temp_compare(CompareScheme):
             if self.save:
                  plt.savefig(self.save_name+'.pdf',dpi=600)
 
+
 ## Average across time for all snotel and wrf sites
 ## Average across time for all snotel and wrf sites
 class snotel_average(CompareScheme):
-    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference,save = True):
-        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference,save = True):
+        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference, save)
         
         self.var_list = ['SNOWH']
         
@@ -998,7 +1099,6 @@ class snotel_average(CompareScheme):
         date_range = pd.date_range(self.start, self.end, freq='1D')
         N = len(date_range)
         n = len(a)
-        plt.figure(figsize = (12,8))
 
         colors = ['blue', 'red']
        
@@ -1074,8 +1174,8 @@ class snotel_average(CompareScheme):
 
 
 class snotel_average_diagnostics(CompareScheme):
-    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference,snodas, save = True):
-        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name, reference, save)
+    def __init__(self,var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference,snodas, save = True):
+        super().__init__(var, path_to_header, path_to_csv, path_to_geog, path_to_wrf_file, save_name,start,stop, reference, save)
         
         self.var_list = ['SNOWH']
         self.snodas = snodas
@@ -1215,3 +1315,119 @@ class snotel_average_diagnostics(CompareScheme):
 
         if self.save:
             plt.savefig(self.save_name+'.pdf',dpi=600)
+
+
+def plot_grouped_histogram(df,title,ax,legend = True, xlabel = True):
+
+    '''
+    
+        Plot histogram of KGE per experiment
+        
+    '''
+    count_dict = {}
+
+    for col in df.columns[1:]:
+        # Initializing counters for each category
+        count_cat1 = 0
+        count_cat2 = 0
+        count_cat3 = 0
+        count_cat4 = 0
+        for value in df[col]:
+            if value >= 0.75:
+                count_cat1 += 1
+            elif 0.65 <= value < 0.75:
+                count_cat2 += 1
+            elif 0.5 <= value < 6.5:
+                count_cat3 += 1
+            else:
+                count_cat4 += 1
+                
+        count_dict[col] = {'Category 1': count_cat1, 'Category 2': count_cat2, 'Category 3': count_cat3, 'Category 4': count_cat4}
+
+    # Plotting the grouped histogram
+    data = count_dict
+    categories = ['Category 1', 'Category 2', 'Category 3', 'Category 4']
+    values = {category: [data[key][category] for key in data.keys()] for category in categories}
+    keys = list(data.keys())
+
+    # Set the width of the bars
+    barWidth = 0.15
+
+    # Set position of bar on X axis
+    r1 = np.arange(len(values['Category 1']))
+    r2 = [x + barWidth for x in r1]
+    r3 = [x + barWidth for x in r2]
+    r4 = [x + barWidth for x in r3]
+
+    #plt.figure(figsize=(8, 3))
+
+    # Create the grouped bar plot
+    ax.bar(r1, values['Category 1'], color='g', width=barWidth, edgecolor='grey', label=r'Very Good')
+    ax.bar(r2, values['Category 2'], color='y', width=barWidth, edgecolor='grey', label=r'Good')
+    ax.bar(r3, values['Category 3'], color='b', width=barWidth, edgecolor='grey', label=r'Satisfactory')
+    ax.bar(r4, values['Category 4'], color='r', width=barWidth, edgecolor='grey', label=r'Unsatisfatory')
+
+    # Adding labels and ticks
+    
+    
+    if xlabel: 
+        ax.set_xlabel('Experiment', fontweight='bold')
+        ax.set_xticks([r + 1.5 * barWidth for r in range(len(values['Category 1']))], keys, rotation=90)
+
+
+    else:
+        ax.set_xticks([])
+        ax.set_xticklabels([])
+    
+    ax.set_title(title,fontweight='bold')
+    ax.set_ylabel('Number of SNOTEL Sites',fontweight='bold')
+    # Placing the legend outside the plot
+    if legend:
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+
+def plot_KGE2(swe, elevation,lim = -0.5, tyype='KGE'):
+    merged = pd.merge(swe, elevation, on='Name', how='inner')
+
+    listt = ['TH-CFS', 'TH-ERA', 'MOR-CFS', 'MOR-ERA', 'WD-CFS', 'WD-ERA', 'WS-CFS', 'WS-ERA']
+
+    fig, axes = plt.subplots(2, 4, figsize=(14, 6))  # Change to 2 rows and 4 columns
+
+    for i, df_name in enumerate(listt):
+        name = f'{df_name}'
+        ax = axes[i // 4, i % 4]  # Get the current axis using integer division and modulo
+        ax.scatter(merged[name], merged['Elevation'], color='green')  # Access merged DataFrame columns
+        correlation_coefficient = np.corrcoef(merged[name], merged['Elevation'])[0, 1]
+
+        ax.text(0.05, 0.95, f'$\\rho$: {correlation_coefficient:.2f}', fontsize=8, verticalalignment='top',
+                horizontalalignment='left', transform=ax.transAxes)
+
+        # Fit a linear regression model
+        X = np.array(merged[name]).reshape(-1, 1)
+        y = merged['Elevation']
+        model = LinearRegression()
+        model.fit(X, y)
+
+        y_pred = model.predict(X)
+
+        # Plot the regression line
+        ax.plot(X, y_pred, color='red')
+
+        ax.set_title(df_name)
+
+        if i % 4 != 0:  # hide yticks for second plot column
+            ax.set_yticklabels([])
+
+        if i >= 4:  # set xlabel for the last row
+            ax.set_xlabel(f'{tyype} score')
+
+        if i % 4 == 0:
+            ax.set_ylabel('Elevation')
+            
+        ax.set_xlim(lim, 1)
+    # Adjust layout and show the plots
+    plt.tight_layout()
+    plt.show()
+
+# Example usage:
+# plot_KGE(swe_data_frame, elevation_data_frame, tyype='KGE')
